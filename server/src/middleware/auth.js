@@ -1,30 +1,19 @@
 import { createClerkClient } from '@clerk/backend';
 import jwt from 'jsonwebtoken';
-
-// Initialize Clerk client
 const clerk = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY
 });
-
-// Verify Clerk JWT token
 export const verifyToken = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
-
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
     }
-
-    // Try to verify token - first decode to get user ID
     try {
-      // Decode token without verification to get user ID
       const decoded = jwt.decode(token);
-      
       if (decoded && decoded.sub) {
-        // Get user from Clerk to verify token is valid
         try {
           const user = await clerk.users.getUser(decoded.sub);
-          
           if (user) {
             req.user = {
               clerkId: decoded.sub,
@@ -33,7 +22,6 @@ export const verifyToken = async (req, res, next) => {
             return next();
           }
         } catch (userError) {
-          // If we can't get user, still allow if token is decoded
           req.user = {
             clerkId: decoded.sub,
             email: decoded.email,
@@ -43,8 +31,6 @@ export const verifyToken = async (req, res, next) => {
       }
     } catch (verifyError) {
       console.error('Token verification error:', verifyError.message);
-      // For now, allow access if token exists (temporary fix)
-      // Decode token to get user ID
       try {
         const decoded = jwt.decode(token);
         if (decoded && decoded.sub) {
@@ -65,15 +51,11 @@ export const verifyToken = async (req, res, next) => {
     return res.status(401).json({ error: 'Authentication failed' });
   }
 };
-
-// Role-based access control
 export const requireRole = (...roles) => {
   return async (req, res, next) => {
     try {
-      // Get user from database to check role
       const User = (await import('../models/User.js')).default;
       const user = await User.findOne({ clerkId: req.user.clerkId });
-
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
@@ -91,8 +73,6 @@ export const requireRole = (...roles) => {
     }
   };
 };
-
-// Optional auth - doesn't fail if no token
 export const optionalAuth = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -107,13 +87,11 @@ export const optionalAuth = async (req, res, next) => {
           };
         }
       } catch (tokenError) {
-        // Continue without auth if token is invalid
       }
     }
 
     next();
   } catch (error) {
-    // Continue without auth if token is invalid
     next();
   }
 };
